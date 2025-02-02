@@ -51,10 +51,10 @@ init :: proc() -> ^Program {
 	}
 
 
-	// if mx.Init() < 0 {
-	// 	fmt.println(mx.GetError())
-	// 	return nil
-	// }
+	if mx.Init(mx.INIT_WAV) < 0 {
+		fmt.println(mx.GetError())
+		return nil
+	}
 
 	// open device to generate noice
 	if mx.OpenAudio(44100, mx.DEFAULT_FORMAT, 2, 2048) < 0 {
