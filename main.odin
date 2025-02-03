@@ -1,9 +1,13 @@
 package main
 
 import "core:fmt"
+import "core:mem"
+import "core:strconv"
+import "core:strings"
 import sdl "vendor:sdl2"
 import img "vendor:sdl2/image"
 import mx "vendor:sdl2/mixer"
+import ttf "vendor:sdl2/ttf"
 
 Tool_Type :: enum {
 	Odin,
@@ -23,9 +27,11 @@ Program :: struct {
 	renderer:         ^sdl.Renderer,
 	tools:            [Tool_Type]Tool,
 	background_music: ^mx.Music,
+	font:             ^ttf.Font,
 	width:            i32,
 	height:           i32,
 	delta_time:       u32,
+	fps:              u32,
 	running:          bool,
 }
 
@@ -50,15 +56,21 @@ init :: proc() -> ^Program {
 		return nil
 	}
 
-
-	// if mx.Init() < 0 {
-	// 	fmt.println(mx.GetError())
-	// 	return nil
-	// }
-
 	// open device to generate noice
 	if mx.OpenAudio(44100, mx.DEFAULT_FORMAT, 2, 2048) < 0 {
 		fmt.printf("failed to open audio: %s\n", mx.GetError())
+		return nil
+	}
+
+	if ttf.Init() < 0 {
+		fmt.printf("failed to init ttf library: %s\n", ttf.GetError())
+		return nil
+	}
+
+
+	program.font = ttf.OpenFont("res/lightningstrike.ttf", 24)
+	if program.font == nil {
+		fmt.printf("failed to open ttf: %s\n", ttf.GetError())
 		return nil
 	}
 
@@ -162,12 +174,42 @@ quit_and_clear :: proc(program: ^Program) {
 	free(program)
 }
 
+
+draw_text :: proc(program: ^Program, text: string) -> ^sdl.Texture {
+	builder := strings.builder_make()
+	defer strings.builder_destroy(&builder)
+	strings.write_string(&builder, text)
+	text_surface := ttf.RenderText_Solid(
+		program.font,
+		strings.to_cstring(&builder),
+		{255, 255, 255, 255},
+	)
+	defer sdl.FreeSurface(text_surface)
+	texture := sdl.CreateTextureFromSurface(program.renderer, text_surface)
+	if texture == nil {
+		fmt.printf("failed to create texture from surface: %s\n", sdl.GetError())
+		return nil
+	}
+
+	return texture
+
+}
+
 draw_frame :: proc(program: ^Program) {
 	sdl.RenderClear(program.renderer)
 
 	sdl.SetRenderDrawColor(program.renderer, 100, 200, 200, 255)
 
-	sdl.SetRenderTarget(program.renderer, program.tools[.Odin].texture)
+	fps: [4]byte
+	conv_fps := strconv.itoa(fps[:], int(program.fps))
+	text := draw_text(program, conv_fps)
+	if text == nil {
+		fmt.println("error")
+	}
+	defer sdl.DestroyTexture(text)
+
+	sdl.RenderCopy(program.renderer, text, nil, &{program.width - 24 * 4, 0, 100, 100})
+
 	sdl.RenderCopy(program.renderer, program.tools[.Odin].texture, nil, &program.tools[.Odin].rect)
 
 	sdl.RenderCopy(program.renderer, program.tools[.SDL].texture, nil, &program.tools[.SDL].rect)
@@ -175,9 +217,9 @@ draw_frame :: proc(program: ^Program) {
 	sdl.RenderPresent(program.renderer)
 }
 
-calculate_fps :: proc(frames_passed: i32) -> i32 {
+calculate_fps :: proc(frames_passed: i32) -> u32 {
 	fps := frames_passed / i32(sdl.GetTicks() / 1000)
-	return fps
+	return u32(fps)
 }
 
 update_state :: proc(program: ^Program) {
@@ -218,7 +260,22 @@ update_state :: proc(program: ^Program) {
 
 }
 
+
+get_leaks :: proc(a: mem.Tracking_Allocator) {
+	for _, value in a.allocation_map {
+		fmt.printf("on %v: leaked %v bytes\n", value.location, value.size)
+	}
+}
+
+
 main :: proc() {
+	default_allocator := context.allocator
+	tracking_allocator: mem.Tracking_Allocator
+	mem.tracking_allocator_init(&tracking_allocator, default_allocator)
+	context.allocator = mem.tracking_allocator(&tracking_allocator)
+
+	defer get_leaks(tracking_allocator)
+
 	program := init()
 	if program == nil {
 		return
@@ -248,11 +305,12 @@ main :: proc() {
 		update_state(program)
 		draw_frame(program)
 
-		fps := calculate_fps(frames_passed)
+		program.fps = calculate_fps(frames_passed)
 
 
 		frame_ticks = sdl.GetTicks()
 		frames_passed += 1
 	}
+
 
 }
