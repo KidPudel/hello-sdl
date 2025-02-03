@@ -164,6 +164,8 @@ quit_and_clear :: proc(program: ^Program) {
 
 	mx.FreeMusic(program.background_music)
 
+	ttf.CloseFont(program.font)
+
 
 	sdl.DestroyRenderer(program.renderer)
 	sdl.DestroyWindow(program.window)
