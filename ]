@@ -34,7 +34,6 @@ Program :: struct {
 	delta_time:       u32,
 	fps:              u32,
 	running:          bool,
-	randomizer:       u8,
 }
 
 
@@ -243,6 +242,7 @@ update_state :: proc(program: ^Program) {
 		}
 	}
 
+	rand_num: u8 = 0
 
 	if program.tools[.Odin].rect.x + program.tools[.Odin].rect.w >= program.width ||
 	   program.tools[.Odin].rect.y + program.tools[.Odin].rect.h >= program.height ||
@@ -253,17 +253,17 @@ update_state :: proc(program: ^Program) {
 			fmt.printf("error while playing sound: %s\n", mx.GetError())
 		}
 
-		values := [2]u8{0, 1}
-		program.randomizer = rand.choice(values[:])
+		values := [5]u8{0, 1, 2, 3, 4}
+		rand_num = rand.choice(values[:])
 	}
 
-	if program.randomizer == 0 {
+	if rand_num == 0 {
 		program.tools[.Odin].rect.x += program.tools[.Odin].direction * i32(program.delta_time) / 3
 		program.tools[.Odin].rect.y += program.tools[.Odin].direction * i32(program.delta_time) / 3
 	}
-	if program.randomizer == 1 {
-		program.tools[.Odin].rect.x += program.tools[.Odin].direction * i32(program.delta_time) / 3
-		program.tools[.Odin].rect.y -= program.tools[.Odin].direction * i32(program.delta_time) / 3
+	if rand_num == 1 {
+		program.tools[.Odin].rect.x -= program.tools[.Odin].direction * i32(program.delta_time) / 3
+		program.tools[.Odin].rect.y += program.tools[.Odin].direction * i32(program.delta_time) / 3
 	}
 
 
@@ -276,14 +276,10 @@ update_state :: proc(program: ^Program) {
 			// fmt.println(mx.GetError())
 		}
 	}
-	if program.randomizer == 0 {
+	if rand_num == 2 {
 		program.tools[.SDL].rect.x += program.tools[.SDL].direction * i32(program.delta_time) / 2
 		program.tools[.SDL].rect.y -= program.tools[.SDL].direction * i32(program.delta_time) / 2
-	}
 
-	if program.randomizer == 1 {
-		program.tools[.SDL].rect.x += program.tools[.SDL].direction * i32(program.delta_time) / 2
-		program.tools[.SDL].rect.y += program.tools[.SDL].direction * i32(program.delta_time) / 2
 	}
 
 
